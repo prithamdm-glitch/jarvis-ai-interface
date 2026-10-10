@@ -1,97 +1,103 @@
-const jarvisCore = document.getElementById('jarvisCore');
-const statusText = document.getElementById('statusText');
+// Configuración de ElevenLabs
+const API_KEY = "sk_6a920ccf1090c9f8e825f6987a9b7c38fe0d2253cf0b1b66";
+const VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // Sustituye por tu Voice ID real de David Martin
 
-const ELEVENLABS_API_KEY = "sk_6a920ccf1090c9f8e825f6987a9b7c38fe0d2253cf0b1b66";
-const VOICE_ID = "jtfxplhZxnBzQICVwoQn";
-
+// Configuración del Reconocimiento de Voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-async function speakWithElevenLabs(text) {
-    statusText.innerText = "Jarvis hablando...";
-    try {
-        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "xi-api-key": ELEVENLABS_API_KEY
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: "eleven_multilingual_v2",
-                voice_settings: {
-                    stability: 0.5,
-                    similarity_boost: 0.75
-                }
-            })
-        });
-
-        if (!response.ok) throw new Error("Error en la API de ElevenLabs");
-
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        audio.onended = () => {
-            statusText.innerText = "Esperando comando...";
-        };
-
-        audio.play();
-    } catch (error) {
-        console.error(error);
-        statusText.innerText = "Error al reproducir audio";
-    }
-}
-
-if (SpeechRecognition) {
+if (!SpeechRecognition) {
+    alert("Tu navegador no soporta el reconocimiento de voz. Usa Google Chrome.");
+} else {
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
 
+    // Elementos del DOM para la interfaz
+    const statusText = document.querySelector('.status-text') || document.body;
+
+    // Eventos de control del micrófono
     recognition.onstart = () => {
-        statusText.innerText = "Escuchando...";
-        jarvisCore.style.borderColor = "rgba(0, 255, 255, 0.8)";
-    };
-
-    recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.length; ++i) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-            } else {
-                interimTranscript += event.results[i][0].transcript;
-            }
-        }
-
-        if (finalTranscript) {
-            statusText.innerText = "Comando: " + finalTranscript;
-            processCommand(finalTranscript.toLowerCase());
-        } else {
-            statusText.innerText = "Escuchando: " + interimTranscript;
-        }
+        console.log("🟢 Micrófono activo y escuchando...");
+        if (statusText) statusText.textContent = "Escuchando...";
     };
 
     recognition.onerror = (event) => {
-        statusText.innerText = "Error: " + event.error;
+        console.error("🔴 Error en el micrófono:", event.error);
+        if (statusText) statusText.textContent = "Error: " + event.error;
     };
 
     recognition.onend = () => {
-        statusText.innerText = "Esperando comando...";
-        jarvisCore.style.borderColor = "rgba(0, 255, 255, 0.5)";
-        recognition.start();
+        console.log("🟡 Reconocimiento pausado. Reiniciando...");
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log("Ya estaba iniciado.");
+        }
     };
 
-    function processCommand(command) {
-        if (command.includes("jarvis")) {
-            const respuesta = "Sistema activo. ¿En qué puedo ayudarte?";
-            speakWithElevenLabs(respuesta);
+    // Procesar lo que escuchas
+    recognition.onresult = async (event) => {
+        const lastResultIndex = event.results.length - 1;
+        const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
+        
+        console.log("🎤 Texto captado:", transcript);
+
+        // Detectar palabra clave "Jarvis"
+        if (transcript.includes("jarvis")) {
+            console.log("⚡ Palabra clave 'Jarvis' detectada.");
+            if (statusText) statusText.textContent = "Procesando comando...";
+            
+            // Responder con ElevenLabs
+            await hablarJarvis("Sistema activo. ¿En qué puedo ayudarte?");
+        }
+    };
+
+    // Función para llamar a la API de ElevenLabs
+    async function hablarJarvis(texto) {
+        console.log("🔊 Enviando petición a ElevenLabs...");
+        try {
+            const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "xi-api-key": API_KEY
+                },
+                body: JSON.stringify({
+                    text: texto,
+                    model_id: "eleven_multilingual_v2",
+                    voice_settings: {
+                        stability: 0.5,
+                        similarity_boost: 0.75
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("🔴 Error API ElevenLabs:", errorData);
+                return;
+            }
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            console.log("▶️ Reproduciendo voz de Jarvis...");
+            await audio.play();
+            if (statusText) statusText.textContent = "Escuchando...";
+        } catch (error) {
+            console.error("🔴 Error al conectar con ElevenLabs:", error);
         }
     }
 
-    recognition.start();
-    statusText.innerText = "Sistema iniciado...";
-} else {
-    statusText.innerText = "Tu navegador no soporta reconocimiento de voz.";
+    // Iniciar escucha al hacer clic en la pantalla
+    document.addEventListener("click", () => {
+        try {
+            recognition.start();
+            console.log("▶️ Reconocimiento iniciado por interacción del usuario.");
+        } catch (e) {
+            console.log("El micrófono ya estaba en ejecución.");
+        }
+    }, { once: true });
 }
