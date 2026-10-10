@@ -1,0 +1,93 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0d1117;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.hud-container {
+    text-align: center;
+    position: relative;
+}
+
+.jarvis-core {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 255, 255, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 30px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    animation: pulse 2s infinite alternate;
+}
+
+.ring {
+    position: absolute;
+    border: 1px solid #00ffff;
+    border-radius: 50%;
+    animation: rotate 10s linear infinite;
+}
+
+.outer-ring {
+    width: 240px;
+    height: 240px;
+    border-color: rgba(0, 255, 255, 0.3);
+}
+
+.inner-ring {
+    width: 220px;
+    height: 220px;
+    border-color: rgba(0, 255, 255, 0.6);
+    animation-direction: reverse;
+    animation-duration: 8s;
+}
+
+.core-text {
+    font-size: 24px;
+    font-weight: bold;
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff;
+    letter-spacing: 2px;
+}
+
+.hud-panel {
+    background-color: rgba(20, 30, 45, 0.8);
+    padding: 15px 25px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.hud-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.hud-panel p {
+    margin: 0;
+    font-size: 14px;
+    color: #cccccc;
+}
+
+@keyframes pulse {
+    from { box-shadow: 0 0 15px rgba(0, 255, 255, 0.2); }
+    to { box-shadow: 0 0 30px rgba(0, 255, 255, 0.5); }
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
