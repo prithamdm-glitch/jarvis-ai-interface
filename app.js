@@ -6,13 +6,13 @@ if (!SpeechRecognition) {
 } else {
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = false; // Procesa frase a frase de forma limpia
+    recognition.continuous = false; // Procesa frase por frase sin solaparse
     recognition.interimResults = false;
 
     const statusText = document.querySelector('.status-text') || document.body;
     let isSpeaking = false;
 
-    // Cargar voces del navegador para elegir la más natural
+    // Cargar voces del navegador
     let vocesDisponibles = [];
     function cargarVoces() {
         vocesDisponibles = window.speechSynthesis.getVoices();
@@ -23,12 +23,12 @@ if (!SpeechRecognition) {
     }
 
     recognition.onstart = () => {
-        console.log("🟢 Micrófono escuchando...");
+        console.log("🟢 Micrófono activo y escuchando...");
         if (statusText) statusText.textContent = "Escuchando...";
     };
 
     recognition.onerror = (event) => {
-        console.error("🔴 Error micrófono:", event.error);
+        console.error("🔴 Error en el micrófono:", event.error);
         if (statusText) statusText.textContent = "Error: " + event.error;
     };
 
@@ -44,69 +44,75 @@ if (!SpeechRecognition) {
         if (isSpeaking) return;
 
         const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        console.log("🎤 Captado:", transcript);
+        console.log("🎤 Texto captado:", transcript);
 
         if (transcript.length > 0) {
+            // Detener micrófono temporalmente para evitar ruidos mientras procesa
             try { recognition.stop(); } catch(e) {}
 
             if (statusText) statusText.textContent = "Pensando...";
-            
-            // Consultar a la IA para obtener una respuesta real
+
+            // Obtener respuesta inteligente
             const respuestaIA = await obtenerRespuestaIA(transcript);
             hablarJarvis(respuestaIA);
         }
     };
 
-    // Función para consultar a una IA libre (sin API key)
+    // Consulta a la IA gratuita para responder a cualquier pregunta
     async function obtenerRespuestaIA(pregunta) {
-        console.log("🤖 Consultando IA para:", pregunta);
+        console.log("🤖 Procesando pregunta con IA:", pregunta);
         try {
-            const promptSystem = "Eres Jarvis, una IA de asistencia personal breve, concisa y directa. Responde en español en 1 o 2 frases máximo.";
+            const promptSystem = "Eres Jarvis, un asistente virtual muy breve, claro y conciso. Responde en español en un máximo de 2 frases corta.";
             const url = `https://text.pollinations.ai/${encodeURIComponent(pregunta)}?system=${encodeURIComponent(promptSystem)}`;
             
             const res = await fetch(url);
-            if (!res.ok) throw new Error("Error en la respuesta de la IA");
+            if (!res.ok) throw new Error("Error en respuesta IA");
             
-            const textoRespuesta = await res.text();
-            return textoRespuesta.trim();
+            const texto = await res.text();
+            return texto.trim();
         } catch (error) {
-            console.error("🔴 Error con la IA:", error);
-            return "Lo siento, he tenido un problema al procesar tu respuesta.";
+            console.error("🔴 Error al obtener respuesta:", error);
+            return "No he podido procesar esa pregunta en este momento.";
         }
     }
 
-    // Función de voz optimizada con selección de voz natural
+    // Función de voz corregida para forzar la emisión de sonido
     function hablarJarvis(texto) {
         isSpeaking = true;
-        console.log("🔊 Respondiendo:", texto);
-        
+        console.log("🔊 Generando respuesta de voz:", texto);
+
+        // Solución al bug de Chrome: cancelar y reanudar el motor de voz
         window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
 
         const utterance = new SpeechSynthesisUtterance(texto);
         utterance.lang = 'es-ES';
         utterance.rate = 1.0;
-        utterance.pitch = 0.95; // Un tono ligeramente más grave para sonar más natural
+        utterance.pitch = 1.0;
 
-        // Seleccionar una voz en español de mejor calidad si está disponible
-        if (vocesDisponibles.length > 0) {
-            const vozEspanolMejor = vocesDisponibles.find(v => 
-                (v.lang.includes('es') || v.lang.includes('ES')) && 
-                (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Jorge') || v.name.includes('Helena'))
-            ) || vocesDisponibles.find(v => v.lang.includes('es'));
-            
-            if (vozEspanolMejor) {
-                utterance.voice = vozEspanolMejor;
-                console.log("🎙️ Usando la voz:", vozEspanolMejor.name);
-            }
+        // Asignar voz en español si está disponible
+        if (vocesDisponibles.length === 0) {
+            vocesDisponibles = window.speechSynthesis.getVoices();
+        }
+
+        const vozEspanol = vocesDisponibles.find(v => 
+            (v.lang.includes('es') || v.lang.includes('ES')) && 
+            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Jorge') || v.name.includes('Helena'))
+        ) || vocesDisponibles.find(v => v.lang.includes('es'));
+
+        if (vozEspanol) {
+            utterance.voice = vozEspanol;
+            console.log("🎙️ Voz seleccionada:", vozEspanol.name);
         }
 
         utterance.onstart = () => {
+            console.log("▶️ Jarvis hablando...");
             if (statusText) statusText.textContent = "Hablando...";
         };
 
         const reanudarEscucha = () => {
             isSpeaking = false;
-            console.log("✅ Fin de respuesta. Reactivando micrófono...");
+            console.log("✅ Terminado de hablar. Reactivando micrófono...");
             if (statusText) statusText.textContent = "Escuchando...";
             try {
                 recognition.start();
@@ -114,16 +120,23 @@ if (!SpeechRecognition) {
         };
 
         utterance.onend = reanudarEscucha;
-        utterance.onerror = reanudarEscucha;
+        utterance.onerror = (e) => {
+            console.error("🔴 Error en reproducción de voz:", e);
+            reanudarEscucha();
+        };
 
+        // Forzar habla
         window.speechSynthesis.speak(utterance);
     }
 
-    // Iniciar al hacer clic
+    // Iniciar con el primer clic del usuario
     document.addEventListener("click", () => {
+        // Desbloquear el motor de audio del navegador
+        window.speechSynthesis.resume();
+        
         try {
             recognition.start();
-            console.log("▶️ Iniciado por el usuario.");
+            console.log("▶️ Reconocimiento iniciado por interacción del usuario.");
         } catch (e) {}
     }, { once: true });
 }
