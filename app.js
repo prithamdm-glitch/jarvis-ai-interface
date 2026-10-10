@@ -12,6 +12,9 @@ if (!SpeechRecognition) {
     // Elementos del DOM para la interfaz
     const statusText = document.querySelector('.status-text') || document.body;
 
+    // Control para evitar bucles de bloqueo
+    let isSpeaking = false;
+
     // Eventos de control del micrófono
     recognition.onstart = () => {
         console.log("🟢 Micrófono activo y escuchando...");
@@ -24,57 +27,73 @@ if (!SpeechRecognition) {
     };
 
     recognition.onend = () => {
-        console.log("🟡 Reconocimiento pausado. Reiniciando...");
-        try {
-            recognition.start();
-        } catch (e) {
-            console.log("Ya estaba iniciado.");
+        // Solo se reinicia si Jarvis no está hablando en ese momento
+        if (!isSpeaking) {
+            console.log("🟡 Reconocimiento pausado. Reiniciando...");
+            try {
+                recognition.start();
+            } catch (e) {
+                console.log("Ya estaba iniciado.");
+            }
         }
     };
 
     // Procesar cualquier texto captado por el micrófono
     recognition.onresult = async (event) => {
+        if (isSpeaking) return; // Ignorar voz mientras Jarvis habla
+
         const lastResultIndex = event.results.length - 1;
         const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
         
         console.log("🎤 Texto captado:", transcript);
 
-        // Se activa directamente al captar cualquier voz
         if (transcript.length > 0) {
             console.log("⚡ Comando de voz procesado:", transcript);
-            if (statusText) statusText.textContent = "Procesando comando...";
+            if (statusText) statusText.textContent = "Procesando...";
             
             // Responder con la voz del navegador
             hablarJarvis("Hola, soy Jarvis. Tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?");
         }
     };
 
-    // Función usando la sintesis de voz nativa del navegador
+    // Función usando la síntesis de voz nativa con bloqueo de seguridad
     function hablarJarvis(texto) {
-        console.log("🔊 Generando respuesta con voz local...");
+        isSpeaking = true;
+        console.log("🔊 Generando respuesta...");
         
-        // Detener reproducciones anteriores para evitar solapamientos
+        // Cancelar cualquier audio anterior para evitar bloqueos
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(texto);
         utterance.lang = 'es-ES';
-        utterance.rate = 1.0; // Velocidad normal
-        utterance.pitch = 1.0; // Tono de voz normal
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
 
         utterance.onstart = () => {
-            console.log("▶️ Reproduciendo voz de Jarvis...");
+            console.log("▶️ Jarvis hablando...");
             if (statusText) statusText.textContent = "Hablando...";
         };
 
-        utterance.onend = () => {
-            console.log("✅ Reproducción finalizada. Escuchando de nuevo...");
+        const liberarYReanudar = () => {
+            isSpeaking = false;
+            console.log("✅ Terminado de hablar. Reactivando micrófono...");
             if (statusText) statusText.textContent = "Escuchando...";
+            try {
+                recognition.start();
+            } catch (e) {
+                // Ya está activo
+            }
         };
 
-        utterance.onerror = (e) => {
-            console.error("🔴 Error en la voz del navegador:", e);
-            if (statusText) statusText.textContent = "Escuchando...";
-        };
+        utterance.onend = liberarYReanudar;
+        utterance.onerror = liberarYReanudar;
+
+        // Seguridad por si el evento onend falla en algunos navegadores
+        setTimeout(() => {
+            if (isSpeaking) {
+                liberarYReanudar();
+            }
+        }, 5000); // Se libera automáticamente a los 5 segundos max.
 
         window.speechSynthesis.speak(utterance);
     }
