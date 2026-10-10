@@ -1,6 +1,6 @@
 // Configuración de ElevenLabs
 const API_KEY = "sk_6a920ccf1090c9f8e825f6987a9b7c38fe0d2253cf0b1b66";
-const VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // Sustituye por tu Voice ID real de David Martin
+const VOICE_ID = "jtfxplhZxnBzQICVwoQn"; // Sustituye por tu Voice ID real de David Martin
 
 // Configuración del Reconocimiento de Voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
