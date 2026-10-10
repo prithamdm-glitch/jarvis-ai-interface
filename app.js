@@ -1,7 +1,3 @@
-// Configuración de ElevenLabs y Voz
-const API_KEY = "sk_6a920ccf1090c9f8e825f6987a9b7c38fe0d2253cf0b1b66";
-const VOICE_ID = "jtfxplhZxnBzQICVwoQn"; // Tu Voice ID de ElevenLabs
-
 // Configuración del Reconocimiento de Voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -43,53 +39,44 @@ if (!SpeechRecognition) {
         
         console.log("🎤 Texto captado:", transcript);
 
-        // Se activa directamente al captar voz
+        // Se activa directamente al captar cualquier voz
         if (transcript.length > 0) {
             console.log("⚡ Comando de voz procesado:", transcript);
             if (statusText) statusText.textContent = "Procesando comando...";
             
-            // Responder con ElevenLabs
-            await hablarJarvis("Hola, soy Jarvis. Tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?");
+            // Responder con la voz del navegador
+            hablarJarvis("Hola, soy Jarvis. Tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?");
         }
     };
 
-    // Función para llamar a la API de ElevenLabs
-    async function hablarJarvis(texto) {
-        console.log("🔊 Enviando petición a ElevenLabs...");
-        try {
-            const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "xi-api-key": API_KEY
-                },
-                body: JSON.stringify({
-                    text: texto,
-                    model_id: "eleven_turbo_v2_5", // Modelo de alta velocidad y compatibilidad
-                    voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.75
-                    }
-                })
-            });
+    // Función usando la sintesis de voz nativa del navegador
+    function hablarJarvis(texto) {
+        console.log("🔊 Generando respuesta con voz local...");
+        
+        // Detener reproducciones anteriores para evitar solapamientos
+        window.speechSynthesis.cancel();
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error("🔴 DETALLE EXACTO DE ELEVENLABS:", JSON.stringify(errorData, null, 2));
-                if (statusText) statusText.textContent = "Error en ElevenLabs (revisa consola)";
-                return;
-            }
+        const utterance = new SpeechSynthesisUtterance(texto);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.0; // Velocidad normal
+        utterance.pitch = 1.0; // Tono de voz normal
 
-            const audioBlob = await response.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
+        utterance.onstart = () => {
             console.log("▶️ Reproduciendo voz de Jarvis...");
-            await audio.play();
+            if (statusText) statusText.textContent = "Hablando...";
+        };
+
+        utterance.onend = () => {
+            console.log("✅ Reproducción finalizada. Escuchando de nuevo...");
             if (statusText) statusText.textContent = "Escuchando...";
-        } catch (error) {
-            console.error("🔴 Error al conectar con ElevenLabs:", error);
-        }
+        };
+
+        utterance.onerror = (e) => {
+            console.error("🔴 Error en la voz del navegador:", e);
+            if (statusText) statusText.textContent = "Escuchando...";
+        };
+
+        window.speechSynthesis.speak(utterance);
     }
 
     // Iniciar escucha al hacer clic en la pantalla
