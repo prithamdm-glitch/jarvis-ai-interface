@@ -27,7 +27,6 @@ if (!SpeechRecognition) {
     };
 
     recognition.onend = () => {
-        // Solo se reinicia si Jarvis no está hablando en ese momento
         if (!isSpeaking) {
             console.log("🟡 Reconocimiento pausado. Reiniciando...");
             try {
@@ -38,9 +37,9 @@ if (!SpeechRecognition) {
         }
     };
 
-    // Procesar cualquier texto captado por el micrófono
+    // Procesar lo que captas por voz
     recognition.onresult = async (event) => {
-        if (isSpeaking) return; // Ignorar voz mientras Jarvis habla
+        if (isSpeaking) return;
 
         const lastResultIndex = event.results.length - 1;
         const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
@@ -48,20 +47,36 @@ if (!SpeechRecognition) {
         console.log("🎤 Texto captado:", transcript);
 
         if (transcript.length > 0) {
-            console.log("⚡ Comando de voz procesado:", transcript);
-            if (statusText) statusText.textContent = "Procesando...";
+            console.log("⚡ Procesando pregunta:", transcript);
+            if (statusText) statusText.textContent = "Pensando...";
             
-            // Responder con la voz del navegador
-            hablarJarvis("Hola, soy Jarvis. Tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?");
+            // Generar respuesta inteligente basada en lo que has dicho
+            const respuestaIA = generarRespuestaInteligente(transcript);
+            
+            // Hacer que Jarvis hable con la respuesta generada
+            hablarJarvis(respuestaIA);
         }
     };
 
-    // Función usando la síntesis de voz nativa con bloqueo de seguridad
+    // Función de inteligencia simulada (aquí puedes conectar tu API de Gemini en el futuro)
+    function generarRespuestaInteligente(texto) {
+        if (texto.includes("cómo te llamas") || texto.includes("preséntate")) {
+            return "Soy Jarvis, tu sistema de asistencia inteligente integrado en la web.";
+        } else if (texto.includes("capital de españa")) {
+            return "La capital de España es Madrid.";
+        } else if (texto.includes("hora")) {
+            const ahora = new Date();
+            return `Son las ${ahora.getHours()} y ${ahora.getMinutes()}.`;
+        } else {
+            return `Has dicho: ${texto}. Entendido, procesando tu solicitud.`;
+        }
+    }
+
+    // Función de voz (puedes cambiarla por ElevenLabs o usar la nativa optimizada)
     function hablarJarvis(texto) {
         isSpeaking = true;
-        console.log("🔊 Generando respuesta...");
+        console.log("🔊 Generando respuesta de voz...");
         
-        // Cancelar cualquier audio anterior para evitar bloqueos
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(texto);
@@ -81,19 +96,19 @@ if (!SpeechRecognition) {
             try {
                 recognition.start();
             } catch (e) {
-                // Ya está activo
+                // Ya activo
             }
         };
 
         utterance.onend = liberarYReanudar;
         utterance.onerror = liberarYReanudar;
 
-        // Seguridad por si el evento onend falla en algunos navegadores
+        // Seguridad por temporizador
         setTimeout(() => {
             if (isSpeaking) {
                 liberarYReanudar();
             }
-        }, 5000); // Se libera automáticamente a los 5 segundos max.
+        }, 7000);
 
         window.speechSynthesis.speak(utterance);
     }
