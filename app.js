@@ -36,16 +36,16 @@ if (!SpeechRecognition) {
         }
     };
 
-    // Procesar lo que escuchas
+    // Procesar cualquier texto captado por el micrófono
     recognition.onresult = async (event) => {
         const lastResultIndex = event.results.length - 1;
         const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
         
         console.log("🎤 Texto captado:", transcript);
 
-        // Detectar palabra clave "Jarvis"
-        if (transcript.includes("jarvis")) {
-            console.log("⚡ Palabra clave 'Jarvis' detectada.");
+        // Se activa directamente al captar voz
+        if (transcript.length > 0) {
+            console.log("⚡ Comando de voz procesado:", transcript);
             if (statusText) statusText.textContent = "Procesando comando...";
             
             // Responder con ElevenLabs
@@ -65,7 +65,7 @@ if (!SpeechRecognition) {
                 },
                 body: JSON.stringify({
                     text: texto,
-                    model_id: "eleven_turbo_v2_5", // Modelo de baja latencia y alta compatibilidad
+                    model_id: "eleven_turbo_v2_5", // Modelo de alta velocidad y compatibilidad
                     voice_settings: {
                         stability: 0.5,
                         similarity_boost: 0.75
@@ -75,8 +75,30 @@ if (!SpeechRecognition) {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error("🔴 Detalle del error de ElevenLabs:", JSON.stringify(errorData, null, 2));
+                console.error("🔴 DETALLE EXACTO DE ELEVENLABS:", JSON.stringify(errorData, null, 2));
+                if (statusText) statusText.textContent = "Error en ElevenLabs (revisa consola)";
                 return;
             }
 
             const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            console.log("▶️ Reproduciendo voz de Jarvis...");
+            await audio.play();
+            if (statusText) statusText.textContent = "Escuchando...";
+        } catch (error) {
+            console.error("🔴 Error al conectar con ElevenLabs:", error);
+        }
+    }
+
+    // Iniciar escucha al hacer clic en la pantalla
+    document.addEventListener("click", () => {
+        try {
+            recognition.start();
+            console.log("▶️ Reconocimiento iniciado por interacción del usuario.");
+        } catch (e) {
+            console.log("El micrófono ya estaba en ejecución.");
+        }
+    }, { once: true });
+}
