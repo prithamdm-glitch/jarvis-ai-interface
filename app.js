@@ -1,6 +1,6 @@
-// Configuración de ElevenLabs
+// Configuración de ElevenLabs y Voz
 const API_KEY = "sk_6a920ccf1090c9f8e825f6987a9b7c38fe0d2253cf0b1b66";
-const VOICE_ID = "jtfxplhZxnBzQICVwoQn"; // Sustituye por tu Voice ID real de David Martin
+const VOICE_ID = "jtfxplhZxnBzQICVwoQn"; // Tu Voice ID de ElevenLabs
 
 // Configuración del Reconocimiento de Voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -49,7 +49,7 @@ if (!SpeechRecognition) {
             if (statusText) statusText.textContent = "Procesando comando...";
             
             // Responder con ElevenLabs
-            await hablarJarvis("Sistema activo. ¿En qué puedo ayudarte?");
+            await hablarJarvis("Hola, soy Jarvis. Tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?");
         }
     };
 
@@ -65,7 +65,7 @@ if (!SpeechRecognition) {
                 },
                 body: JSON.stringify({
                     text: texto,
-                    model_id: "eleven_multilingual_v2",
+                    model_id: "eleven_turbo_v2_5", // Modelo de baja latencia y alta compatibilidad
                     voice_settings: {
                         stability: 0.5,
                         similarity_boost: 0.75
@@ -75,29 +75,8 @@ if (!SpeechRecognition) {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error("🔴 Error API ElevenLabs:", errorData);
+                console.error("🔴 Detalle del error de ElevenLabs:", JSON.stringify(errorData, null, 2));
                 return;
             }
 
             const audioBlob = await response.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            console.log("▶️ Reproduciendo voz de Jarvis...");
-            await audio.play();
-            if (statusText) statusText.textContent = "Escuchando...";
-        } catch (error) {
-            console.error("🔴 Error al conectar con ElevenLabs:", error);
-        }
-    }
-
-    // Iniciar escucha al hacer clic en la pantalla
-    document.addEventListener("click", () => {
-        try {
-            recognition.start();
-            console.log("▶️ Reconocimiento iniciado por interacción del usuario.");
-        } catch (e) {
-            console.log("El micrófono ya estaba en ejecución.");
-        }
-    }, { once: true });
-}
