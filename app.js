@@ -10,7 +10,6 @@ if (!SpeechRecognition) {
 
     const statusText = document.querySelector('.status-text') || document.body;
     
-    // Estados: "esperando_aplausos", "escuchando_comando", "hablando"
     let estado = "esperando_aplausos"; 
     let audioContext = null;
     let analyser = null;
@@ -18,7 +17,7 @@ if (!SpeechRecognition) {
     let contadorAplausos = 0;
     let tiempoUltimoAplauso = 0;
 
-    // 1. Configurar detector de aplausos mediante el micrófono
+    // 1. Configurar detector de aplausos preciso
     async function iniciarDetectorDeAplausos() {
         try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -33,30 +32,27 @@ if (!SpeechRecognition) {
 
             detectarPicosDeSonido();
         } catch (e) {
-            console.error("No se pudo acceder al micrófono para los aplausos:", e);
+            console.error("Error al acceder al micrófono:", e);
             if (statusText) statusText.textContent = "Haz clic en la pantalla para activar.";
         }
     }
 
-    // Analizador de volumen en tiempo real para detectar aplausos
     function detectarPicosDeSonido() {
         if (estado !== "esperando_aplausos") return;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(dataArray);
 
-        // Calcular volumen medio
         let suma = 0;
         for (let i = 0; i < dataArray.length; i++) {
             suma += dataArray[i];
         }
         let volumen = suma / dataArray.length;
 
-        // Si el volumen supera el umbral de un aplauso seco (> 45)
-        if (volumen > 45) {
+        // Umbral estricto para aplausos secos y fuertes (> 55)
+        if (volumen > 55) {
             const ahora = Date.now();
-            // Si pasa más de 1.5 segundos desde el último, reiniciamos el contador
-            if (ahora - tiempoUltimoAplauso > 1500) {
+            if (ahora - tiempoUltimoAplauso > 1200) {
                 contadorAplausos = 0;
             }
 
@@ -67,11 +63,10 @@ if (!SpeechRecognition) {
             if (contadorAplausos === 2) {
                 contadorAplausos = 0;
                 activarJarvisPorAplausos();
-                return; // Salimos del bucle temporalmente
+                return;
             }
 
-            // Pequeña pausa para no contar un mismo aplauso doblemente
-            setTimeout(detenerBreve, 300);
+            setTimeout(detenerBreve, 400);
             return;
         }
 
@@ -83,26 +78,24 @@ if (!SpeechRecognition) {
             if (estado === "esperando_aplausos") {
                 detectarPicosDeSonido();
             }
-        }, 300);
+        }, 400);
     }
 
-    // Acción cuando se detectan los 2 aplausos
     function activarJarvisPorAplausos() {
         estado = "hablando";
         if (statusText) statusText.textContent = "¡Activado!";
         console.log("⚡ ¡Dos aplausos detectados! Activando asistente...");
 
-        // Mensaje de confirmación auditiva
-        hablar("¡Sistema activado! ¿Qué necesitas?", () => {
+        hablar("Sistema activado. ¿Qué deseas hacer?", () => {
             estado = "escuchando_comando";
-            if (statusText) statusText.textContent = "Te escucho... Habla ahora";
+            if (statusText) statusText.textContent = "Te escucho...";
             try {
                 recognition.start();
             } catch (e) {}
         });
     }
 
-    // 2. Reconocimiento de voz tras la activación
+    // 2. Procesar órdenes del usuario
     recognition.onresult = (event) => {
         if (estado !== "escuchando_comando") return;
 
@@ -114,9 +107,8 @@ if (!SpeechRecognition) {
             estado = "hablando";
             if (statusText) statusText.textContent = "Procesando...";
 
-            let respuesta = procesarComando(texto);
+            let respuesta = procesarComandoInteligente(texto);
             hablar(respuesta, () => {
-                // Volver a modo reposo esperando aplausos para la siguiente vez
                 estado = "esperando_aplausos";
                 if (statusText) statusText.textContent = "Da 2 aplausos para activar a Jarvis...";
                 detectarPicosDeSonido();
@@ -140,25 +132,40 @@ if (!SpeechRecognition) {
         }
     };
 
-    // Respuestas inteligentes locales
-    function procesarComando(texto) {
-        if (texto.includes("albert einstein")) {
-            return "Albert Einstein fue un físico teórico revolucionario, célebre por formular la teoría de la relatividad.";
-        } else if (texto.includes("tiempo") || texto.includes("clima")) {
-            return "Se prevén cielos despejados y temperaturas agradables para los próximos días.";
-        } else if (texto.includes("qué puedes hacer")) {
-            return "Puedo buscar información, resolver dudas, darte la hora exacta y asistirte con comandos de voz.";
-        } else if (texto.includes("preséntate") || texto.includes("quién eres")) {
+    // Cerebro mejorado con respuestas detalladas y acciones reales (como abrir YouTube)
+    function procesarComandoInteligente(texto) {
+        if (texto.includes("lionel messi") || texto.includes("messi")) {
+            return "Lionel Messi es un futbolista argentino considerado uno de los mejores jugadores de la historia, ganador de múltiples balones de oro y campeón del mundo en dos mil veintidós.";
+        } 
+        else if (texto.includes("youtube") || texto.includes("abre youtube")) {
+            window.open("https://www.youtube.com", "_blank");
+            return "Abriendo YouTube en una nueva pestaña.";
+        } 
+        else if (texto.includes("tiempo") || texto.includes("clima") || texto.includes("previsión")) {
+            return "Para la próxima semana se esperan cielos mayormente despejados y temperaturas agradables.";
+        } 
+        else if (texto.includes("albert einstein")) {
+            return "Albert Einstein fue un físico alemán creador de la teoría de la relatividad, una de las bases de la física moderna.";
+        } 
+        else if (texto.includes("qué puedes hacer") || texto.includes("ayuda")) {
+            return "Puedo buscar biografías, abrir páginas como YouTube, decirte la hora, darte previsiones y responder a tus preguntas.";
+        } 
+        else if (texto.includes("preséntate") || texto.includes("quién eres")) {
             return "Hola, soy Jarvis, tu asistente virtual inteligente integrado en la web.";
-        } else if (texto.includes("hora")) {
+        } 
+        else if (texto.includes("hora")) {
             const d = new Date();
             return `Son las ${d.getHours()} horas y ${d.getMinutes()} minutos.`;
-        } else {
-            return `He registrado tu orden sobre ${texto}. Ejecutando análisis.`;
+        } 
+        else if (texto.includes("chiste")) {
+            return "Va un caracol y se sube a un tren, y dice: ¡Uff, qué velocidad! ¡Quítate que me atropellas!";
+        }
+        else {
+            return `Has preguntado sobre "${texto}". Es un tema interesante, aunque mis bases de datos locales todavía están aprendiendo sobre ello.`;
         }
     }
 
-    // 3. Sistema de voz en alta definición optimizado
+    // 3. Sistema de voz natural HD
     function hablar(mensaje, callbackFin) {
         window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
@@ -166,9 +173,8 @@ if (!SpeechRecognition) {
         const utterance = new SpeechSynthesisUtterance(mensaje);
         utterance.lang = 'es-ES';
         utterance.rate = 1.0;
-        utterance.pitch = 0.95; // Tono más natural y serio
+        utterance.pitch = 0.95;
 
-        // Seleccionar la mejor voz en español disponible en el dispositivo
         const voces = window.speechSynthesis.getVoices();
         const vozHD = voces.find(v => 
             (v.lang.includes('es') || v.lang.includes('ES')) && 
@@ -194,7 +200,6 @@ if (!SpeechRecognition) {
         window.speechSynthesis.speak(utterance);
     }
 
-    // Iniciar con un clic en la pantalla (permisos de audio del navegador)
     document.addEventListener("click", () => {
         if (audioContext && audioContext.state === 'suspended') {
             audioContext.resume();
