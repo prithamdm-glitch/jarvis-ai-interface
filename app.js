@@ -1,14 +1,15 @@
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (!SpeechRecognition) {
-    alert("Usa Google Chrome para compatibilidad.");
+    alert("Usa Google Chrome para compatibilidad de voz.");
 } else {
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.continuous = true; 
     recognition.interimResults = false;
 
-    const statusText = document.querySelector('.status-text') || document.body;
+    const statusText = document.getElementById('status-text');
+    const coreBall = document.getElementById('jarvis-core');
     let isSpeaking = false;
 
     let voces = [];
@@ -21,8 +22,8 @@ if (!SpeechRecognition) {
     }
 
     recognition.onstart = () => {
-        console.log("🟢 Jarvis en modo conversación libre...");
-        if (statusText) statusText.textContent = "Escuchando en tiempo real...";
+        console.log("🟢 Jarvis escuchando libremente...");
+        if (statusText && !isSpeaking) statusText.textContent = "ESCUCHANDO...";
     };
 
     recognition.onerror = (event) => {
@@ -35,7 +36,7 @@ if (!SpeechRecognition) {
         }
     };
 
-    // Escucha continua sin palabras clave obligatorias ("oye socio")
+    // Escucha continua sin palabras clave obligatorias ("Oye socio")
     recognition.onresult = async (event) => {
         if (isSpeaking) return;
 
@@ -46,9 +47,9 @@ if (!SpeechRecognition) {
         if (texto.length > 2) {
             try { recognition.stop(); } catch(e) {}
             isSpeaking = true;
-            if (statusText) statusText.textContent = "Procesando...";
+            if (statusText) statusText.textContent = "PROCESANDO...";
 
-            // 1. Ejecutar acciones directas del sistema/web antes de hablar
+            // 1. Ejecutar acciones directas del sistema/web
             const accionEjecutada = ejecutarAccionLocal(texto);
 
             if (accionEjecutada) {
@@ -60,7 +61,7 @@ if (!SpeechRecognition) {
             }
 
             isSpeaking = false;
-            if (statusText) statusText.textContent = "Escuchando en tiempo real...";
+            if (statusText) statusText.textContent = "ESCUCHANDO...";
             try { recognition.start(); } catch (e) {}
         }
     };
@@ -76,7 +77,6 @@ if (!SpeechRecognition) {
             return "Abriendo Google.";
         }
         if (comando.includes("calculadora") || comando.includes("calcular")) {
-            // Abrir una calculadora web integrada o herramienta útil
             window.open("https://www.google.com/search?q=calculadora", "_blank");
             return "Abriendo la calculadora.";
         }
@@ -84,13 +84,13 @@ if (!SpeechRecognition) {
             window.open("https://www.google.com/search?q=tiempo+actual", "_blank");
             return "Buscando la previsión del tiempo actual para ti.";
         }
-        return null; // Si no hay acción física, pasa a la IA conversacional
+        return null; 
     }
 
     // Cerebro de IA conversacional avanzado
     async function consultarInteligenciaArtificial(pregunta) {
         try {
-            const systemPrompt = "Eres Jarvis, una inteligencia artificial avanzada, sarcástica pero muy útil, conversacional y humana. Responde de forma breve y directa (máximo 2 frases) en español.";
+            const systemPrompt = "Eres Jarvis, una inteligencia artificial avanzada, conversacional, humana y muy directa. Responde en un máximo de 2 frases en español.";
             const url = `https://text.pollinations.ai/${encodeURIComponent(pregunta)}?system=${encodeURIComponent(systemPrompt)}`;
             
             const res = await fetch(url);
@@ -104,25 +104,24 @@ if (!SpeechRecognition) {
         }
     }
 
-    // Motor de voz optimizado a máxima calidad disponible
+    // Motor de voz con animación interactiva en la bola central
     function hablarJarvis(texto) {
         return new Promise((resolve) => {
             console.log("🔊 Jarvis respondiendo:", texto);
-            if (statusText) statusText.textContent = "Jarvis hablando...";
+            if (statusText) statusText.textContent = "HABLANDO...";
 
             window.speechSynthesis.cancel();
             window.speechSynthesis.resume();
 
             const utterance = new SpeechSynthesisUtterance(texto);
             utterance.lang = 'es-ES';
-            utterance.rate = 1.05; // Ritmo fluido
-            utterance.pitch = 0.90; // Tono grave y serio
+            utterance.rate = 1.05;
+            utterance.pitch = 0.90;
 
             if (voces.length === 0) {
                 voces = window.speechSynthesis.getVoices();
             }
 
-            // Seleccionar la voz más natural posible del sistema
             const vozElegida = voces.find(v => 
                 (v.lang.includes('es') || v.lang.includes('ES')) && 
                 (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Microsoft Helena') || v.name.includes('Lucia'))
@@ -130,14 +129,29 @@ if (!SpeechRecognition) {
 
             if (vozElegida) {
                 utterance.voice = vozElegida;
-                console.log("🎙️ Voz activa:", vozElegida.name);
             }
 
+            // Bucle de animación para que la bola vibre y se mueva mientras Jarvis habla
+            const animarIntervalo = setInterval(() => {
+                if (!window.speechSynthesis.speaking) {
+                    clearInterval(animarIntervalo);
+                    coreBall.style.transform = "scale(1)";
+                    return;
+                }
+                // Escala aleatoria para simular el pulso de voz
+                let scaleRandom = 1 + (Math.random() * 0.25);
+                coreBall.style.transform = `scale(${scaleRandom})`;
+            }, 80);
+
             utterance.onend = () => {
+                clearInterval(animarIntervalo);
+                coreBall.style.transform = "scale(1)";
                 resolve();
             };
 
             utterance.onerror = () => {
+                clearInterval(animarIntervalo);
+                coreBall.style.transform = "scale(1)";
                 resolve();
             };
 
@@ -151,6 +165,7 @@ if (!SpeechRecognition) {
         try {
             recognition.start();
             console.log("▶️ Jarvis activo en conversación libre.");
+            if (statusText) statusText.textContent = "ESCUCHANDO...";
         } catch (e) {}
     }, { once: true });
 }
