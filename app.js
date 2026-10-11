@@ -9,16 +9,14 @@ if (!SpeechRecognition) {
 } else {
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = true; // Siempre escuchando de fondo buscando la frase de activación
+    recognition.continuous = true; 
     recognition.interimResults = false;
 
     const statusText = document.querySelector('.status-text') || document.body;
-    
-    // Estados: "esperando_activacion", "escuchando_orden", "hablando"
     let estado = "esperando_activacion";
 
     recognition.onstart = () => {
-        console.log("🟢 Micrófono escuchando en segundo plano...");
+        console.log("🟢 Micrófono escuchando...");
         if (statusText) statusText.textContent = "Di 'oye socio' para activar a Jarvis...";
     };
 
@@ -26,22 +24,18 @@ if (!SpeechRecognition) {
         console.error("Error en reconocimiento:", event.error);
     };
 
-    // Bucle de escucha continua inteligente
     recognition.onend = () => {
         if (estado === "esperando_activacion") {
-            try {
-                recognition.start();
-            } catch (e) {}
+            try { recognition.start(); } catch (e) {}
         }
     };
 
-    // Procesar lo que escucha el micrófono
     recognition.onresult = async (event) => {
         const lastResultIndex = event.results.length - 1;
         const texto = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
         console.log("🎤 Captado:", texto);
 
-        // ESTADO 1: Esperando la frase mágica "oye socio"
+        // Activación por voz: "oye socio"
         if (estado === "esperando_activacion") {
             if (texto.includes("oye socio") || texto.includes("oye solio") || texto.includes("oído socio")) {
                 console.log("⚡ ¡Frase de activación detectada!");
@@ -55,12 +49,10 @@ if (!SpeechRecognition) {
                 estado = "escuchando_orden";
                 if (statusText) statusText.textContent = "Te escucho... Haz tu pregunta o acción";
                 
-                try {
-                    recognition.start();
-                } catch (e) {}
+                try { recognition.start(); } catch (e) {}
             }
         } 
-        // ESTADO 2: Escuchando la orden real tras la activación
+        // Procesar orden tras la activación
         else if (estado === "escuchando_orden") {
             try { recognition.stop(); } catch(e) {}
             estado = "hablando";
@@ -71,19 +63,14 @@ if (!SpeechRecognition) {
             
             await hablarJarvis(respuesta);
 
-            // Volver a quedar a la escucha de "oye socio"
             estado = "esperando_activacion";
             if (statusText) statusText.textContent = "Di 'oye socio' para activar a Jarvis...";
             
-            try {
-                recognition.start();
-            } catch (e) {}
+            try { recognition.start(); } catch (e) {}
         }
     };
 
-    // Cerebro de acciones y respuestas inteligentes
     function procesarAccionYRespuesta(texto) {
-        // Acciones web reales
         if (texto.includes("youtube") || texto.includes("abre youtube")) {
             window.open("https://www.youtube.com", "_blank");
             return "Abriendo YouTube en una nueva pestaña.";
@@ -92,7 +79,6 @@ if (!SpeechRecognition) {
             window.open("https://www.google.com", "_blank");
             return "Abriendo Google.";
         }
-        // Consultas e información general
         else if (texto.includes("lionel messi") || texto.includes("messi")) {
             return "Lionel Messi es un futbolista argentino considerado uno de los mejores de la historia y campeón del mundo.";
         } 
@@ -100,10 +86,10 @@ if (!SpeechRecognition) {
             return "Albert Einstein fue el físico teórico creador de la teoría de la relatividad.";
         } 
         else if (texto.includes("tiempo") || texto.includes("clima") || texto.includes("previsión")) {
-            return "Para los próximos días se esperan cielos mayormente despejados y temperaturas agradables.";
+            return "Para los próximos días se esperan cielos despejados y temperaturas agradables.";
         } 
         else if (texto.includes("qué puedes hacer") || texto.includes("ayuda")) {
-            return "Puedo abrir páginas web como YouTube, buscar biografías, darte la hora y responder a cualquier duda que tengas.";
+            return "Puedo abrir páginas web como YouTube, buscar biografías, darte la hora y responder a cualquier duda.";
         } 
         else if (texto.includes("preséntate") || texto.includes("quién eres")) {
             return "Hola, soy Jarvis, tu asistente virtual inteligente integrado en la web.";
@@ -116,11 +102,10 @@ if (!SpeechRecognition) {
             return "Va un caracol y se sube a un tren, y dice: ¡Uff, qué velocidad!";
         }
         else {
-            return `Has consultado sobre ${texto}. He procesado la información de tu solicitud correctamente.`;
+            return `Has consultado sobre ${texto}. He procesado la información correctamente.`;
         }
     }
 
-    // Sistema de voz prioritario: ElevenLabs con respaldo local HD
     async function hablarJarvis(texto) {
         console.log("🔊 Generando voz para:", texto);
         if (statusText) statusText.textContent = "Jarvis hablando...";
@@ -142,9 +127,7 @@ if (!SpeechRecognition) {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error(`Error en ElevenLabs: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Error en ElevenLabs: ${response.status}`);
 
             const audioBlob = await response.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
@@ -162,7 +145,6 @@ if (!SpeechRecognition) {
         }
     }
 
-    // Respaldo de voz local HD
     function hablarVozLocal(texto) {
         return new Promise((resolve) => {
             window.speechSynthesis.cancel();
@@ -187,7 +169,6 @@ if (!SpeechRecognition) {
         });
     }
 
-    // Iniciar con un clic en la pantalla
     document.addEventListener("click", () => {
         window.speechSynthesis.resume();
         try {
