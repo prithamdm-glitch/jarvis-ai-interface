@@ -3,21 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JARVIS HUD System</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>JARVIS AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #000; /* Fondo negro futurista sólido */
+            color: cyan;
+            font-family: 'Montserrat', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Anillos holográficos de fondo */
+        .hologram-container {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            border-radius: 50%;
+            box-shadow: 0 0 80px rgba(0, 255, 255, 0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: -1;
+            animation: girar 20s linear infinite;
+        }
+
+        .hologram-container::after {
+            content: '';
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            border: 1px dashed rgba(0, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: girarInverso 15s linear infinite;
+        }
+
+        @keyframes girar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes girarInverso {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        /* La BOLA CENTRAL de Jarvis que se mueve al hablar */
+        .jarvis-core {
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(0,255,255,1) 0%, rgba(0,140,255,1) 60%, rgba(0,40,130,1) 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.7), 0 0 90px rgba(0, 140, 255, 0.5);
+            transition: transform 0.08s ease-out;
+        }
+
+        /* Texto de estado inferior */
+        #status-text {
+            position: fixed;
+            bottom: 15%;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #0ff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .hint {
+            position: fixed;
+            top: 5%;
+            font-size: 0.85rem;
+            color: rgba(0, 255, 255, 0.5);
+            letter-spacing: 1px;
+        }
+    </style>
 </head>
 <body>
-    <div class="hud-container">
-        <div class="jarvis-core" id="jarvisCore">
-            <div class="ring outer-ring"></div>
-            <div class="ring inner-ring"></div>
-            <div class="core-text">JARVIS</div>
-        </div>
-        <div class="hud-panel" id="statusPanel">
-            <h3>Estado del Sistema</h3>
-            <p id="statusText">Esperando comando de voz...</p>
-        </div>
-    </div>
+    <div class="hint">Haz clic en cualquier parte para iniciar a Jarvis</div>
+    <div class="hologram-container"></div>
+    <div class="jarvis-core" id="jarvis-core"></div>
+    <div id="status-text">ESPERANDO INICIO...</div>
+
     <script src="app.js"></script>
 </body>
 </html>
