@@ -9,164 +9,121 @@ if (!SpeechRecognition) {
 } else {
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = false;
+    recognition.continuous = true; // Siempre escuchando de fondo buscando la frase de activación
     recognition.interimResults = false;
 
     const statusText = document.querySelector('.status-text') || document.body;
+    
+    // Estados: "esperando_activacion", "escuchando_orden", "hablando"
+    let estado = "esperando_activacion";
 
-    // Estados: "esperando_aplausos", "escuchando", "hablando"
-    let estado = "esperando_aplausos";
-    let audioContext = null;
-    let analyser = null;
-    let micStream = null;
-    let contadorAplausos = 0;
-    let tiempoUltimoAplauso = 0;
+    recognition.onstart = () => {
+        console.log("🟢 Micrófono escuchando en segundo plano...");
+        if (statusText) statusText.textContent = "Di 'oye socio' para activar a Jarvis...";
+    };
 
-    // 1. Detector estricto de aplausos físicos mediante AudioContext
-    async function iniciarDetectorDeAplausos() {
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const source = audioContext.createMediaStreamSource(micStream);
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 512;
-            source.connect(analyser);
+    recognition.onerror = (event) => {
+        console.error("Error en reconocimiento:", event.error);
+    };
 
-            if (statusText) statusText.textContent = "Da 2 aplausos fuertes para activar a Jarvis...";
-            console.log("👏 Escuchando aplausos reales...");
-
-            analizarAudioAplausos();
-        } catch (e) {
-            console.error("Error al acceder al micrófono:", e);
-            if (statusText) statusText.textContent = "Haz clic en la pantalla para permitir el micro.";
+    // Bucle de escucha continua inteligente
+    recognition.onend = () => {
+        if (estado === "esperando_activacion") {
+            try {
+                recognition.start();
+            } catch (e) {}
         }
-    }
+    };
 
-    function analizarAudioAplausos() {
-        if (estado !== "esperando_aplausos") return;
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(dataArray);
-
-        let suma = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            suma += dataArray[i];
-        }
-        let volumen = suma / dataArray.length;
-
-        // Umbral alto para detectar un aplauso seco (ignora voz y murmullos)
-        if (volumen > 58) {
-            const ahora = Date.now();
-            if (ahora - tiempoUltimoAplauso > 1200) {
-                contadorAplausos = 0;
-            }
-
-            contadorAplausos++;
-            tiempoUltimoAplauso = ahora;
-            console.log(`👏 ¡Aplauso físico detectado! (${contadorAplausos}/2)`);
-
-            if (contadorAplausos === 2) {
-                contadorAplausos = 0;
-                activarJarvis();
-                return;
-            }
-
-            setTimeout(pausaBreveAplauso, 400);
-            return;
-        }
-
-        requestAnimationFrame(analizarAudioAplausos);
-    }
-
-    function pausaBreveAplauso() {
-        setTimeout(() => {
-            if (estado === "esperando_aplausos") {
-                analizarAudioAplausos();
-            }
-        }, 400);
-    }
-
-    async function activarJarvis() {
-        estado = "hablando";
-        if (statusText) statusText.textContent = "¡Activado por aplausos!";
-        console.log("⚡ Dos aplausos confirmados. Activando voz...");
-
-        await hablarJarvis("Sistema activado. ¿Qué necesitas?");
-        
-        estado = "escuchando";
-        if (statusText) statusText.textContent = "Te escucho, habla ahora...";
-        try {
-            recognition.start();
-        } catch (e) {}
-    }
-
-    // 2. Captura de comandos de voz tras los aplausos
+    // Procesar lo que escucha el micrófono
     recognition.onresult = async (event) => {
-        if (estado !== "escuchando") return;
+        const lastResultIndex = event.results.length - 1;
+        const texto = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
+        console.log("🎤 Captado:", texto);
 
-        const texto = event.results[0][0].transcript.toLowerCase().trim();
-        console.log("🎤 Comando de voz captado:", texto);
+        // ESTADO 1: Esperando la frase mágica "oye socio"
+        if (estado === "esperando_activacion") {
+            if (texto.includes("oye socio") || texto.includes("oye solio") || texto.includes("oído socio")) {
+                console.log("⚡ ¡Frase de activación detectada!");
+                estado = "hablando";
+                
+                try { recognition.stop(); } catch(e) {}
+                if (statusText) statusText.textContent = "¡Activado!";
 
-        if (texto.length > 0) {
+                await hablarJarvis("Dime, ¿qué necesitas?");
+                
+                estado = "escuchando_orden";
+                if (statusText) statusText.textContent = "Te escucho... Haz tu pregunta o acción";
+                
+                try {
+                    recognition.start();
+                } catch (e) {}
+            }
+        } 
+        // ESTADO 2: Escuchando la orden real tras la activación
+        else if (estado === "escuchando_orden") {
             try { recognition.stop(); } catch(e) {}
             estado = "hablando";
             if (statusText) statusText.textContent = "Procesando...";
 
-            const respuesta = procesarComando(texto);
+            console.log("⚡ Ejecutando orden:", texto);
+            const respuesta = procesarAccionYRespuesta(texto);
+            
             await hablarJarvis(respuesta);
 
-            // Volver a esperar aplausos
-            estado = "esperando_aplausos";
-            if (statusText) statusText.textContent = "Da 2 aplausos fuertes para activar a Jarvis...";
-            analizarAudioAplausos();
+            // Volver a quedar a la escucha de "oye socio"
+            estado = "esperando_activacion";
+            if (statusText) statusText.textContent = "Di 'oye socio' para activar a Jarvis...";
+            
+            try {
+                recognition.start();
+            } catch (e) {}
         }
     };
 
-    recognition.onerror = () => {
-        if (estado === "escuchando") {
-            estado = "esperando_aplausos";
-            if (statusText) statusText.textContent = "Da 2 aplausos fuertes para activar a Jarvis...";
-            analizarAudioAplausos();
-        }
-    };
-
-    recognition.onend = () => {
-        if (estado === "escuchando") {
-            estado = "esperando_aplausos";
-            if (statusText) statusText.textContent = "Da 2 aplausos fuertes para activar a Jarvis...";
-            analizarAudioAplausos();
-        }
-    };
-
-    // 3. Cerebro inteligente local
-    function procesarComando(texto) {
-        if (texto.includes("lionel messi") || texto.includes("messi")) {
-            return "Lionel Messi es un futbolista argentino considerado uno de los mejores de la historia y campeón del mundo.";
-        } else if (texto.includes("youtube") || texto.includes("abre youtube")) {
+    // Cerebro de acciones y respuestas inteligentes
+    function procesarAccionYRespuesta(texto) {
+        // Acciones web reales
+        if (texto.includes("youtube") || texto.includes("abre youtube")) {
             window.open("https://www.youtube.com", "_blank");
             return "Abriendo YouTube en una nueva pestaña.";
-        } else if (texto.includes("tiempo") || texto.includes("clima")) {
-            return "Se esperan cielos despejados y temperaturas estables para los próximos días.";
-        } else if (texto.includes("albert einstein")) {
-            return "Albert Einstein fue un físico alemán creador de la teoría de la relatividad.";
-        } else if (texto.includes("qué puedes hacer") || texto.includes("ayuda")) {
-            return "Puedo buscar biografías, abrir páginas, darte la hora y asistirte con comandos de voz.";
-        } else if (texto.includes("preséntate") || texto.includes("quién eres")) {
+        } 
+        else if (texto.includes("google") || texto.includes("abre google")) {
+            window.open("https://www.google.com", "_blank");
+            return "Abriendo Google.";
+        }
+        // Consultas e información general
+        else if (texto.includes("lionel messi") || texto.includes("messi")) {
+            return "Lionel Messi es un futbolista argentino considerado uno de los mejores de la historia y campeón del mundo.";
+        } 
+        else if (texto.includes("albert einstein")) {
+            return "Albert Einstein fue el físico teórico creador de la teoría de la relatividad.";
+        } 
+        else if (texto.includes("tiempo") || texto.includes("clima") || texto.includes("previsión")) {
+            return "Para los próximos días se esperan cielos mayormente despejados y temperaturas agradables.";
+        } 
+        else if (texto.includes("qué puedes hacer") || texto.includes("ayuda")) {
+            return "Puedo abrir páginas web como YouTube, buscar biografías, darte la hora y responder a cualquier duda que tengas.";
+        } 
+        else if (texto.includes("preséntate") || texto.includes("quién eres")) {
             return "Hola, soy Jarvis, tu asistente virtual inteligente integrado en la web.";
-        } else if (texto.includes("hora")) {
+        } 
+        else if (texto.includes("hora")) {
             const d = new Date();
             return `Son las ${d.getHours()} horas y ${d.getMinutes()} minutos.`;
-        } else if (texto.includes("chiste")) {
+        } 
+        else if (texto.includes("chiste")) {
             return "Va un caracol y se sube a un tren, y dice: ¡Uff, qué velocidad!";
-        } else {
-            return `He procesado tu solicitud sobre ${texto}. Todo en orden.`;
+        }
+        else {
+            return `Has consultado sobre ${texto}. He procesado la información de tu solicitud correctamente.`;
         }
     }
 
-    // 4. Sistema de voz principal: ElevenLabs con respaldo local automático
+    // Sistema de voz prioritario: ElevenLabs con respaldo local HD
     async function hablarJarvis(texto) {
-        if (statusText) statusText.textContent = "Jarvis generando voz...";
-        console.log("🔊 Intentando conectar con ElevenLabs...");
+        console.log("🔊 Generando voz para:", texto);
+        if (statusText) statusText.textContent = "Jarvis hablando...";
 
         try {
             const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
@@ -186,15 +143,12 @@ if (!SpeechRecognition) {
             });
 
             if (!response.ok) {
-                throw new Error(`Error ElevenLabs HTTP: ${response.status}`);
+                throw new Error(`Error en ElevenLabs: ${response.status}`);
             }
 
             const audioBlob = await response.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-
-            if (statusText) statusText.textContent = "Jarvis hablando...";
-            console.log("▶️ Reproduciendo voz de ElevenLabs...");
 
             await new Promise((resolve) => {
                 audio.onended = resolve;
@@ -203,12 +157,12 @@ if (!SpeechRecognition) {
             });
 
         } catch (error) {
-            console.warn("⚠️ ElevenLabs no disponible o cuota superada. Usando voz HD local de respaldo:", error);
+            console.warn("⚠️ Usando respaldo de voz local HD:", error);
             await hablarVozLocal(texto);
         }
     }
 
-    // Respaldo de voz local en alta definición si ElevenLabs falla
+    // Respaldo de voz local HD
     function hablarVozLocal(texto) {
         return new Promise((resolve) => {
             window.speechSynthesis.cancel();
@@ -233,13 +187,12 @@ if (!SpeechRecognition) {
         });
     }
 
-    // Iniciar permisos de audio con un clic en la pantalla
+    // Iniciar con un clic en la pantalla
     document.addEventListener("click", () => {
-        if (audioContext && audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-        if (!micStream) {
-            iniciarDetectorDeAplausos();
-        }
+        window.speechSynthesis.resume();
+        try {
+            recognition.start();
+            console.log("▶️ Escucha continua iniciada.");
+        } catch (e) {}
     }, { once: true });
 }
