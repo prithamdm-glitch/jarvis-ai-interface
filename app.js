@@ -9,98 +9,90 @@ if (!SpeechRecognition) {
     recognition.interimResults = false;
 
     const statusText = document.querySelector('.status-text') || document.body;
-    let estado = "esperando_activacion";
+    let isSpeaking = false;
+
+    // Cargar voces del navegador
+    let voces = [];
+    function actualizarVoces() {
+        voces = window.speechSynthesis.getVoices();
+    }
+    actualizarVoces();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = actualizarVoces;
+    }
 
     recognition.onstart = () => {
-        console.log("🟢 Sistema activo. Esperando 'Oye socio'...");
-        if (statusText) statusText.textContent = "Di 'Oye socio' para activar a Jarvis...";
+        console.log("🟢 Jarvis escuchando libremente...");
+        if (statusText) statusText.textContent = "Escuchando... Habla cuando quieras.";
     };
 
     recognition.onerror = (event) => {
         console.error("Error en reconocimiento:", event.error);
     };
 
+    // Mantener la escucha activa de forma permanente
     recognition.onend = () => {
-        if (estado === "esperando_activacion") {
+        if (!isSpeaking) {
             try { recognition.start(); } catch (e) {}
         }
     };
 
+    // Procesar directamente cualquier cosa que digas
     recognition.onresult = async (event) => {
+        if (isSpeaking) return;
+
         const lastResultIndex = event.results.length - 1;
         const texto = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
-        console.log("🎤 Captado:", texto);
+        console.log("🎤 Has dicho:", texto);
 
-        // 1. Detección de la wake-word
-        if (estado === "esperando_activacion") {
-            if (texto.includes("oye socio") || texto.includes("oye solio") || texto.includes("oído socio")) {
-                console.log("⚡ Activado por voz.");
-                estado = "hablando";
-                
-                try { recognition.stop(); } catch(e) {}
-                if (statusText) statusText.textContent = "¡Activado!";
-
-                await hablarJarvis("Sistema en línea. Te escucho.");
-                
-                estado = "escuchando_orden";
-                if (statusText) statusText.textContent = "Habla, te escucho...";
-                
-                try { recognition.start(); } catch (e) {}
-            }
-        } 
-        // 2. Procesamiento de la orden con IA real (sin frases estáticas)
-        else if (estado === "escuchando_orden") {
+        if (texto.length > 2) {
+            // Pausamos temporalmente el reconocimiento mientras procesa y habla para evitar ecos
             try { recognition.stop(); } catch(e) {}
-            estado = "hablando";
+            isSpeaking = true;
             if (statusText) statusText.textContent = "Pensando...";
 
-            console.log("🧠 Generando respuesta inteligente para:", texto);
-            const respuestaIA = await consultarIA(texto);
+            // Consultar a la IA y ejecutar acciones directas
+            const respuestaIA = await procesarAccionYRespuestaReal(texto);
             
             await hablarJarvis(respuestaIA);
 
-            estado = "esperando_activacion";
-            if (statusText) statusText.textContent = "Di 'Oye socio' para activar a Jarvis...";
-            
+            isSpeaking = false;
+            if (statusText) statusText.textContent = "Escuchando... Habla cuando quieras.";
             try { recognition.start(); } catch (e) {}
         }
     };
 
-    // Cerebro de IA real (Pollinations AI / Modelos de lenguaje en tiempo real)
-    async function consultarIA(pregunta) {
-        // Ejecutar acciones directas si el usuario lo pide
-        if (pregunta.includes("youtube") || preguntoAccion(pregunta, "youtube")) {
+    // Cerebro inteligente directo (IA + Acciones web naturales)
+    async function procesarAccionYRespuestaReal(pregunta) {
+        // Acciones automáticas directas
+        if (pregunta.includes("youtube") || pregunta.includes("abre youtube")) {
             window.open("https://www.youtube.com", "_blank");
             return "Abriendo YouTube ahora mismo.";
         }
-        if (pregunta.includes("google")) {
+        if (pregunta.includes("google") || pregunta.includes("abre google")) {
             window.open("https://www.google.com", "_blank");
             return "Abriendo Google.";
         }
 
         try {
-            const systemPrompt = "Eres Jarvis, una inteligencia artificial avanzada, concisa y directa. Responde de forma natural y conversacional en español en un máximo de 2 frases.";
+            const systemPrompt = "Eres Jarvis, una inteligencia artificial avanzada, conversacional y muy natural. Responde de forma directa, humana y breve (máximo 2 frases) en español.";
             const url = `https://text.pollinations.ai/${encodeURIComponent(pregunta)}?system=${encodeURIComponent(systemPrompt)}`;
             
             const res = await fetch(url);
-            if (!res.ok) throw new Error("Error de red en IA");
+            if (!res.ok) throw new Error("Error en IA");
             
             const respuestaTexto = await res.text();
             return respuestaTexto.trim();
         } catch (error) {
-            console.error("Error consultando la IA:", error);
-            return `He procesado tu petición sobre ${pregunta}, aunque ha habido un pequeño fallo de conexión con el servidor neuronal.`;
+            console.error("Error en la IA:", error);
+            return "He procesado tu solicitud, aunque ha habido un pequeño fallo de red al consultar los servidores.";
         }
     }
 
-    function preguntoAccion(texto, palabraClave) {
-        return texto.includes(palabraClave);
-    }
-
-    // Sistema de voz neuronal de alta definición integrado
+    // Voz fluida y natural
     function hablarJarvis(texto) {
         return new Promise((resolve) => {
-            console.log("🔊 Reproduciendo voz HD:", texto);
+            console.log("🔊 Jarvis respondiendo:", texto);
             if (statusText) statusText.textContent = "Jarvis hablando...";
 
             window.speechSynthesis.cancel();
@@ -108,23 +100,23 @@ if (!SpeechRecognition) {
 
             const utterance = new SpeechSynthesisUtterance(texto);
             utterance.lang = 'es-ES';
-            utterance.rate = 1.05; // Velocidad ligeramente más fluida
-            utterance.pitch = 0.95; // Tono más natural
+            utterance.rate = 1.05;
+            utterance.pitch = 0.95;
 
-            // Seleccionar la mejor voz neuronal disponible en el dispositivo
-            const voces = window.speechSynthesis.getVoices();
-            const vozHD = voces.find(v => 
+            if (voces.length === 0) {
+                voces = window.speechSynthesis.getVoices();
+            }
+
+            const vozElegida = voces.find(v => 
                 (v.lang.includes('es') || v.lang.includes('ES')) && 
                 (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Helena') || v.name.includes('Lucia'))
             ) || voces.find(v => v.lang.includes('es'));
 
-            if (vozHD) {
-                utterance.voice = vozHD;
-                console.log("🎙️ Usando voz:", vozHD.name);
+            if (vozElegida) {
+                utterance.voice = vozElegida;
             }
 
             utterance.onend = () => {
-                if (statusText) statusText.textContent = "Escuchando...";
                 resolve();
             };
 
@@ -136,12 +128,12 @@ if (!SpeechRecognition) {
         });
     }
 
-    // Inicio por interacción del usuario obligatoria en navegadores
+    // Activar audio y escucha con un solo clic inicial
     document.addEventListener("click", () => {
         window.speechSynthesis.resume();
         try {
             recognition.start();
-            console.log("▶️ Motor de escucha continua iniciado.");
+            console.log("▶️ Conversación libre iniciada.");
         } catch (e) {}
     }, { once: true });
 }
